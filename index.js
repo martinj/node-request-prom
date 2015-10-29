@@ -1,10 +1,10 @@
 'use strict';
-var request = require('request'),
-	streamify = require('streamify'),
-	path = require('path'),
-	fs = require('fs'),
-	Readable = require('stream').Readable,
-	Promise = require('bluebird');
+var request = require('request');
+var streamify = require('streamify');
+var path = require('path');
+var fs = require('fs');
+var Readable = require('stream').Readable;
+var Promise = require('bluebird');
 
 /**
  * Is status code 2xx
@@ -27,17 +27,20 @@ function requestProm(opts) {
 }
 
 /**
- * Make a GET request
+ * Make a [GET, POST, PATCH, DELETE, HEAD, PUT] request
  * @param {String} url
  * @param {Object} [opts] options to request
  * @return {Promise} resolves with response
  */
- requestProm.get = function (url, opts) {
-	opts = opts || {};
-	opts.url = url;
-	opts.method = 'GET';
-	return requestProm(opts);
-};
+['GET', 'POST', 'PATCH', 'DELETE', 'HEAD', 'PUT'].forEach(function (method) {
+	// create short hand functions
+	requestProm[method.toLowerCase()] = function (url, opts) {
+		opts = opts || {};
+		opts.url = url;
+		opts.method = method;
+		return requestProm(opts);
+	};
+});
 
 /**
  * Make a request that returns a stream thats not sensitive to use after a process.nextTick()
@@ -51,14 +54,15 @@ function requestProm(opts) {
 
 	var req = request(opts);
 	req.on('error', function (err) {
-		if (err.code && err.code === 'ETIMEDOUT') {
+		if (err.code && (err.code === 'ETIMEDOUT' || err.code === 'ESOCKETTIMEDOUT')) {
 			return stream.emit('error', new ConnectionError(
 				'Connect timeout of ' + opts.timeout +
-				' ms exceeded when requesting url: ' + opts.url
+			 	' ms exceeded when requesting url: ' + opts.url,
+			 	err.code
 			));
 		}
 
-		return stream.emit('error', new ConnectionError(err.message));
+		return stream.emit('error', new ConnectionError(err.message, err.code));
 	});
 
 	req.on('response', function (res) {
@@ -72,19 +76,6 @@ function requestProm(opts) {
 	});
 
 	return stream;
-};
-
-/**
- * Make a POST request
- * @param {String} url
- * @param {Object} [opts] options to request
- * @return {Promise} resolves with response
- */
- requestProm.post = function (url, opts) {
-	opts = opts || {};
-	opts.url = url;
-	opts.method = 'POST';
-	return requestProm(opts);
 };
 
 /**
@@ -154,8 +145,9 @@ requestProm.ResponseError = ResponseError;
 /**
  * ConnectionError
  */
-function ConnectionError(message) {
+function ConnectionError(message, code) {
     this.message = message;
+    this.code = code;
     this.name = "ConnectionError";
     Error.captureStackTrace(this, ConnectionError);
 }

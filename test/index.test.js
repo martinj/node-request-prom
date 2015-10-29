@@ -1,7 +1,8 @@
 'use strict';
-var req = require('../'),
-	ResponseError = req.ResponseError,
-	nock = require('nock');
+var req = require('../');
+var ResponseError = req.ResponseError;
+var ConnectionError = req.ConnectionError;
+var nock = require('nock');
 
 require('should');
 
@@ -12,12 +13,25 @@ describe('request-prom', function () {
 		nock(url)
 			.get('/500')
 			.reply(500)
+			.get('/get')
+			.reply(200)
+			.post('/post')
+			.reply(200)
+			.head('/head')
+			.reply(200)
+			.delete('/delete')
+			.reply(200)
+			.put('/put')
+			.reply(200)
+			.patch('/patch')
+			.reply(200)
 			.get('/badJSON')
 			.reply(200, 'fss')
 			.get('/file')
 			.reply(200, 'some content')
-			.post('/post')
-			.reply(200, 'post')
+			.get('/timeout')
+			.socketDelay(2000)
+			.reply(200)
 			.post('/postFile')
 			.reply(200, function (path, body) {
 				return body.match(/filename="index\.test\.js"/) ? 'OK' : 'FAIL';
@@ -45,8 +59,8 @@ describe('request-prom', function () {
 
 	describe('stream()', function () {
 		it('should return stream that works with nextTick', function (done) {
-			var stream = req.stream({ url: url + '/file' }),
-				content = '';
+			var stream = req.stream({ url: url + '/file' });
+			var content = '';
 			process.nextTick(function () {
 				stream.on('data', function (d) {
 					content += d;
@@ -58,6 +72,30 @@ describe('request-prom', function () {
 				});
 			});
 		});
+
+		it('should emit error with ResponseError if response is not ok', function (done) {
+			var stream = req.stream({ url: url + '/500' });
+			stream.on('error', function (err) {
+				err.should.be.instanceOf(ResponseError);
+				done();
+			});
+		});
+
+		it('should emit error with ConnectionError on timeout', function (done) {
+			var stream = req.stream({ url: url + '/timeout',  timeout: 10 });
+			var firstError = true;
+			stream.on('error', function (err) {
+				err.should.be.instanceOf(ConnectionError);
+				if (firstError) {
+					firstError = false;
+					err.code.should.equal('ESOCKETTIMEDOUT');
+				} else {
+					err.message.should.equal('Request aborted');
+					done();
+				}
+			});
+		});
+
 	});
 
 	describe('postFile()', function () {
@@ -68,21 +106,14 @@ describe('request-prom', function () {
 		});
 	});
 
-	describe('get()', function () {
-		it('should make a GET request', function (done) {
-			req.get(url + '/file').then(function (res) {
-				res.body.should.equal('some content');
-				done();
-			}).done();
+	describe('Short hand methods', function () {
+		['get', 'post', 'head', 'delete', 'patch', 'put'].forEach(function (method) {
+			it('should make a ' + method.toUpperCase() + ' request', function (done) {
+				req[method](url + '/' + method).then(function (res) {
+					res.statusCode.should.equal(200);
+					done();
+				}).done();
+			});
 		});
 	});
-
-	describe('post()', function () {
-		it('should make a POST request', function () {
-			req.post(url + '/post').then(function (res) {
-				res.body.should.equal('post');
-			}).done();
-		});
-	});
-
 });
