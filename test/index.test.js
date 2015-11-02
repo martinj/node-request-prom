@@ -32,6 +32,8 @@ describe('request-prom', function () {
 			.get('/timeout')
 			.socketDelay(2000)
 			.reply(200)
+			.get('/error')
+			.replyWithError('shit')
 			.post('/postFile')
 			.reply(200, function (path, body) {
 				return body.match(/filename="index\.test\.js"/) ? 'OK' : 'FAIL';
@@ -46,6 +48,19 @@ describe('request-prom', function () {
 		req({ url: url + '/500' }).catch(ResponseError, function (e) {
 			e.message.should.equal('Request to http://foo.com/500 failed. code: 500');
 			e.statusCode.should.equal(500);
+			done();
+		}).done();
+	});
+
+	it('should reject with ConnectionError on timeout', function (done) {
+		req({ url: url + '/timeout', timeout: 10 }).catch(ConnectionError, function (e) {
+			e.code.should.equal('ESOCKETTIMEDOUT');
+			done();
+		}).done();
+	});
+
+	it('should reject with ConnectionError on request error', function (done) {
+		req({ url: url + '/error' }).catch(ConnectionError, function (e) {
 			done();
 		}).done();
 	});

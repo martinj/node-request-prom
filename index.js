@@ -18,7 +18,7 @@ function isOk(statusCode) {
 /**
  * Make a request
  * @param {Object} opts options to request
- * @return {Promise} resolves with response
+ * @return {Promise} resolves with response or rejects with ResponseError or ConnectionError
  */
 function requestProm(opts) {
 	var defer = Promise.defer();
@@ -56,8 +56,7 @@ function requestProm(opts) {
 	req.on('error', function (err) {
 		if (err.code && (err.code === 'ETIMEDOUT' || err.code === 'ESOCKETTIMEDOUT')) {
 			return stream.emit('error', new ConnectionError(
-				'Connect timeout of ' + opts.timeout +
-			 	' ms exceeded when requesting url: ' + opts.url,
+				'Connect timeout occurred when requesting url: ' + opts.url,
 			 	err.code
 			));
 		}
@@ -112,8 +111,19 @@ function requestProm(opts) {
 function createRequest(opts, defer) {
 	return request(opts,
 		function (err, res, body) {
-			if (err || !isOk(res.statusCode)) {
-				return defer.reject(err || new ResponseError('Request to ' + opts.url + ' failed. code: ' + res.statusCode, res));
+			if (err) {
+				if (err.code && (err.code === 'ETIMEDOUT' || err.code === 'ESOCKETTIMEDOUT')) {
+					return defer.reject(new ConnectionError(
+						'Connect timeout occurred when requesting url: ' + opts.url,
+						err.code
+					));
+				}
+
+				return defer.reject(new ConnectionError(err.message, err.code));
+			}
+
+			if (!isOk(res.statusCode)) {
+				return defer.reject(new ResponseError('Request to ' + opts.url + ' failed. code: ' + res.statusCode, res));
 			}
 
 			if (opts.json && typeof(body) !== 'object') {
