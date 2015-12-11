@@ -3,8 +3,7 @@ var req = require('../');
 var ResponseError = req.ResponseError;
 var ConnectionError = req.ConnectionError;
 var nock = require('nock');
-
-require('should');
+var should = require('should');
 
 describe('request-prom', function () {
 	var url = 'http://foo.com';
@@ -48,6 +47,7 @@ describe('request-prom', function () {
 		req({ url: url + '/500' }).catch(ResponseError, function (e) {
 			e.message.should.equal('Request to http://foo.com/500 failed. code: 500');
 			e.statusCode.should.equal(500);
+			should.exists(e.response);
 			done();
 		}).done();
 	});
@@ -129,6 +129,17 @@ describe('request-prom', function () {
 					done();
 				}).done();
 			});
+		});
+
+		it('should make a get request with custom header', function (done) {
+			nock(url, {reqheaders: {'User-Agent': 'testo'}})
+				.get('/get/header')
+				.reply(200);
+
+			req.get(url + '/get/header', { headers: {'User-Agent': 'testo'}}).then(function (res) {
+				res.statusCode.should.equal(200);
+				done();
+			}).done();
 		});
 	});
 });

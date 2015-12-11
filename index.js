@@ -139,13 +139,11 @@ function createRequest(opts, defer) {
  * ResponseError
  */
 function ResponseError(message, response) {
-    this.message = message;
-    this.name = "ResponseError";
-    if (response) {
-    	this.body = response.body;
-    	this.statusCode = response.statusCode;
-    }
-    Error.captureStackTrace(this, ResponseError);
+	this.message = message;
+	this.name = "ResponseError";
+	this.response = response;
+	this.statusCode = response.statusCode;
+	Error.captureStackTrace(this, ResponseError);
 }
 ResponseError.prototype = Object.create(Error.prototype);
 ResponseError.prototype.constructor = ResponseError;
@@ -156,10 +154,10 @@ requestProm.ResponseError = ResponseError;
  * ConnectionError
  */
 function ConnectionError(message, code) {
-    this.message = message;
-    this.code = code;
-    this.name = "ConnectionError";
-    Error.captureStackTrace(this, ConnectionError);
+	this.message = message;
+	this.code = code;
+	this.name = "ConnectionError";
+	Error.captureStackTrace(this, ConnectionError);
 }
 ConnectionError.prototype = Object.create(Error.prototype);
 ConnectionError.prototype.constructor = ConnectionError;
