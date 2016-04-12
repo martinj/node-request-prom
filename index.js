@@ -21,9 +21,9 @@ function isOk(statusCode) {
  * @return {Promise} resolves with response or rejects with ResponseError or ConnectionError
  */
 function requestProm(opts) {
-	var defer = Promise.defer();
-	createRequest(opts, defer);
-	return defer.promise;
+	return new Promise(function (resolve, reject) {
+		createRequest(opts, resolve, reject);
+	});
 }
 
 /**
@@ -85,52 +85,52 @@ function requestProm(opts) {
  * @return {Promise} resolves with response
  */
  requestProm.postFile = function (url, file, opts) {
-	var defer = Promise.defer();
 	opts = opts || {};
 	opts.url = url;
 	opts.method = 'POST';
 
-	var req = createRequest(opts, defer),
-		form = req.form();
+	return new Promise(function (resolve, reject) {
+		var req = createRequest(opts, resolve, reject),
+			form = req.form();
 
-	if (file instanceof Readable) {
-		form.append('file', file);
-	} else {
-		form.append('file', fs.createReadStream(file), { filename: path.basename(file) });
-	}
-
-	return defer.promise;
+		if (file instanceof Readable) {
+			form.append('file', file);
+		} else {
+			form.append('file', fs.createReadStream(file), { filename: path.basename(file) });
+		}
+	});
 };
 
 /**
  * Create Request
  * @param  {Object} opts options to request
- * @param  {Object} defer promise deferer
+ * @param {Function} resolve promise resolver
+ * @param {Function} reject promise rejecter
  * @return {Request}
  */
-function createRequest(opts, defer) {
+function createRequest(opts, resolve, reject) {
 	return request(opts,
 		function (err, res, body) {
 			if (err) {
 				if (err.code && (err.code === 'ETIMEDOUT' || err.code === 'ESOCKETTIMEDOUT')) {
-					return defer.reject(new ConnectionError(
+					return reject(new ConnectionError(
 						'Connect timeout occurred when requesting url: ' + opts.url,
 						err.code
 					));
 				}
 
-				return defer.reject(new ConnectionError(err.message, err.code));
+				return reject(new ConnectionError(err.message, err.code));
 			}
 
 			if (!isOk(res.statusCode)) {
-				return defer.reject(new ResponseError('Request to ' + opts.url + ' failed. code: ' + res.statusCode, res));
+				return reject(new ResponseError('Request to ' + opts.url + ' failed. code: ' + res.statusCode, res));
 			}
 
 			if (opts.json && typeof(body) !== 'object') {
-				return defer.reject(new ResponseError('Unable to parse json from url: ' + opts.url, res));
+				return reject(new ResponseError('Unable to parse json from url: ' + opts.url, res));
 			}
 
-			return defer.resolve(res);
+			return resolve(res);
 		}
 	);
 }

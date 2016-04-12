@@ -49,27 +49,27 @@ describe('request-prom', function () {
 			e.statusCode.should.equal(500);
 			should.exists(e.response);
 			done();
-		}).done();
+		}).catch(done);
 	});
 
 	it('should reject with ConnectionError on timeout', function (done) {
 		req({ url: url + '/timeout', timeout: 10 }).catch(ConnectionError, function (e) {
 			e.code.should.equal('ESOCKETTIMEDOUT');
 			done();
-		}).done();
+		}).catch(done);
 	});
 
 	it('should reject with ConnectionError on request error', function (done) {
 		req({ url: url + '/error' }).catch(ConnectionError, function (e) {
 			done();
-		}).done();
+		}).catch(done);
 	});
 
 	it('should validate json parsing', function (done) {
 		req({ url: url + '/badJSON', json: true }).catch(ResponseError, function (e) {
 			e.message.should.equal('Unable to parse json from url: http://foo.com/badJSON');
 			done();
-		}).done();
+		}).catch(done);
 	});
 
 	describe('stream()', function () {
@@ -105,7 +105,7 @@ describe('request-prom', function () {
 					firstError = false;
 					err.code.should.equal('ESOCKETTIMEDOUT');
 				} else {
-					err.message.should.equal('Request aborted');
+					err.message.should.equal('socket hang up');
 					done();
 				}
 			});
@@ -127,7 +127,7 @@ describe('request-prom', function () {
 				req[method](url + '/' + method).then(function (res) {
 					res.statusCode.should.equal(200);
 					done();
-				}).done();
+				}).catch(done);
 			});
 		});
 
@@ -139,7 +139,7 @@ describe('request-prom', function () {
 			req.get(url + '/get/header', { headers: {'User-Agent': 'testo'}}).then(function (res) {
 				res.statusCode.should.equal(200);
 				done();
-			}).done();
+			}).catch(done);
 		});
 	});
 });
