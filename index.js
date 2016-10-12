@@ -56,7 +56,7 @@ function requestProm(opts) {
 	req.on('error', function (err) {
 		if (err.code && (err.code === 'ETIMEDOUT' || err.code === 'ESOCKETTIMEDOUT')) {
 			return stream.emit('error', new ConnectionError(
-				'Connect timeout occurred when requesting url: ' + opts.url,
+				'Connect timeout occurred when requesting url: ' + (opts.url || opts.uri),
 			 	err.code
 			));
 		}
@@ -67,7 +67,7 @@ function requestProm(opts) {
 	req.on('response', function (res) {
 		if (!isOk(res.statusCode)) {
 			stream.emit('error', new ResponseError(
-				'Server responded with ' + res.statusCode + ', unable get data from url: ' + opts.url,
+				'Server responded with ' + res.statusCode + ', unable get data from url: ' + (opts.url || opts.uri),
 				res
 			));
 		}
@@ -114,7 +114,7 @@ function createRequest(opts, resolve, reject) {
 			if (err) {
 				if (err.code && (err.code === 'ETIMEDOUT' || err.code === 'ESOCKETTIMEDOUT')) {
 					return reject(new ConnectionError(
-						'Connect timeout occurred when requesting url: ' + opts.url,
+						'Connect timeout occurred when requesting url: ' + (opts.url || opts.uri),
 						err.code
 					));
 				}
@@ -123,11 +123,11 @@ function createRequest(opts, resolve, reject) {
 			}
 
 			if (!isOk(res.statusCode)) {
-				return reject(new ResponseError('Request to ' + opts.url + ' failed. code: ' + res.statusCode, res));
+				return reject(new ResponseError('Request to ' + (opts.url || opts.uri) + ' failed. code: ' + res.statusCode, res));
 			}
 
 			if (opts.json && typeof(body) !== 'object') {
-				return reject(new ResponseError('Unable to parse json from url: ' + opts.url, res));
+				return reject(new ResponseError('Unable to parse json from url: ' + (opts.url || opts.uri), res));
 			}
 
 			return resolve(res);
