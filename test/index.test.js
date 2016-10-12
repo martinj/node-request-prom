@@ -52,6 +52,15 @@ describe('request-prom', function () {
 		}).catch(done);
 	});
 
+	it('should should look for failed url in opts.uri', function (done) {
+		req({ uri: url + '/500' }).catch(ResponseError, function (e) {
+			e.message.should.equal('Request to http://foo.com/500 failed. code: 500');
+			e.statusCode.should.equal(500);
+			should.exists(e.response);
+			done();
+		}).catch(done);
+	});
+
 	it('should reject with ConnectionError on timeout', function (done) {
 		req({ url: url + '/timeout', timeout: 10 }).catch(ConnectionError, function (e) {
 			e.code.should.equal('ESOCKETTIMEDOUT');
