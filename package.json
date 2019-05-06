@@ -1,6 +1,6 @@
 {
   "name": "request-prom",
-  "version": "3.1.0",
+  "version": "4.0.0",
   "description": "Bluebird promise wrapper for request.",
   "main": "index.js",
   "scripts": {

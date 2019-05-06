@@ -1,5 +1,9 @@
 # Changelog
 
+## 4.0.0
+
+* [[2c47f13](../../commit/2c47f13)] Add support for socketTimeout & connectTimeout Drop support for node < 6
+
 ## 3.1.0
 
  * [[2ef29d7](../../commit/2ef29d7)] Output failed url when using opts.uri
