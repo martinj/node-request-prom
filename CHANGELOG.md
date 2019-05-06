@@ -1,5 +1,9 @@
 # Changelog
 
+## 4.0.1
+
+* [[0a484a9](../../commit/0a484a9)] Fix issue with connectTimeout and add test for it.
+
 ## 4.0.0
 
 * [[2c47f13](../../commit/2c47f13)] Add support for socketTimeout & connectTimeout Drop support for node < 6
