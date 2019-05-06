@@ -1,14 +1,14 @@
 'use strict';
-var req = require('../');
-var ResponseError = req.ResponseError;
-var ConnectionError = req.ConnectionError;
-var nock = require('nock');
-var should = require('should');
+const req = require('../');
+const ResponseError = req.ResponseError;
+const ConnectionError = req.ConnectionError;
+const nock = require('nock');
+const should = require('should');
 
-describe('request-prom', function () {
-	var url = 'http://foo.com';
+describe('request-prom', () => {
+	const url = 'http://foo.com';
 
-	beforeEach(function () {
+	beforeEach(() => {
 		nock(url)
 			.get('/500')
 			.reply(500)
@@ -33,18 +33,21 @@ describe('request-prom', function () {
 			.reply(200)
 			.get('/error')
 			.replyWithError('shit')
+			.get('/slowConnect')
+			.delay({head: 1000})
+			.reply(200)
 			.post('/postFile')
-			.reply(200, function (path, body) {
+			.reply(200, (path, body) => {
 				return body.match(/filename="index\.test\.js"/) ? 'OK' : 'FAIL';
 			});
 	});
 
-	afterEach(function () {
+	afterEach(() => {
 		nock.cleanAll();
 	});
 
-	it('should reject with ResponseError on response failure', function (done) {
-		req({ url: url + '/500' }).catch(ResponseError, function (e) {
+	it('should reject with ResponseError on response failure', (done) => {
+		req({url: url + '/500'}).catch(ResponseError, (e) => {
 			e.message.should.equal('Request to http://foo.com/500 failed. code: 500');
 			e.statusCode.should.equal(500);
 			should.exists(e.response);
@@ -52,8 +55,8 @@ describe('request-prom', function () {
 		}).catch(done);
 	});
 
-	it('should should look for failed url in opts.uri', function (done) {
-		req({ uri: url + '/500' }).catch(ResponseError, function (e) {
+	it('should should look for failed url in opts.uri', (done) => {
+		req({uri: url + '/500'}).catch(ResponseError, (e) => {
 			e.message.should.equal('Request to http://foo.com/500 failed. code: 500');
 			e.statusCode.should.equal(500);
 			should.exists(e.response);
@@ -61,94 +64,121 @@ describe('request-prom', function () {
 		}).catch(done);
 	});
 
-	it('should reject with ConnectionError on timeout', function (done) {
-		req({ url: url + '/timeout', timeout: 10 }).catch(ConnectionError, function (e) {
+	it('should reject with ConnectionError on timeout', (done) => {
+		req({url: url + '/timeout', timeout: 10}).catch(ConnectionError, (e) => {
 			e.code.should.equal('ESOCKETTIMEDOUT');
 			done();
 		}).catch(done);
 	});
 
-	it('should reject with ConnectionError on request error', function (done) {
-		req({ url: url + '/error' }).catch(ConnectionError, function (e) {
+	it('should reject with ConnectionError on request error', (done) => {
+		req({url: url + '/error'}).catch(ConnectionError, () => {
 			done();
 		}).catch(done);
 	});
 
-	it('should validate json parsing', function (done) {
-		req({ url: url + '/badJSON', json: true }).catch(ResponseError, function (e) {
+	it('should validate json parsing', (done) => {
+		req({url: url + '/badJSON', json: true}).catch(ResponseError, (e) => {
 			e.message.should.equal('Unable to parse json from url: http://foo.com/badJSON');
 			done();
 		}).catch(done);
 	});
 
-	describe('stream()', function () {
-		it('should return stream that works with nextTick', function (done) {
-			var stream = req.stream({ url: url + '/file' });
-			var content = '';
-			process.nextTick(function () {
-				stream.on('data', function (d) {
+	describe('stream()', () => {
+		it('should return stream that works with nextTick', (done) => {
+			const stream = req.stream({url: url + '/file'});
+			let content = '';
+			process.nextTick(() => {
+				stream.on('data', (d) => {
 					content += d;
 				});
 
-				stream.on('end', function () {
+				stream.on('end', () => {
 					content.should.equal('some content');
 					done();
 				});
 			});
 		});
 
-		it('should emit error with ResponseError if response is not ok', function (done) {
-			var stream = req.stream({ url: url + '/500' });
-			stream.on('error', function (err) {
+		it('should emit error with ResponseError if response is not ok', (done) => {
+			const stream = req.stream({url: url + '/500'});
+			stream.on('error', (err) => {
 				err.should.be.instanceOf(ResponseError);
 				done();
 			});
 		});
 
-		it('should emit error with ConnectionError on timeout', function (done) {
-			var stream = req.stream({ url: url + '/timeout',  timeout: 10 });
-			var firstError = true;
-			stream.on('error', function (err) {
+		it('should emit error with ConnectionError on timeout', (done) => {
+			const stream = req.stream({url: url + '/timeout', timeout: 10});
+			stream.on('error', (err) => {
 				err.should.be.instanceOf(ConnectionError);
-				if (firstError) {
-					firstError = false;
-					err.code.should.equal('ESOCKETTIMEDOUT');
-				} else {
-					err.message.should.equal('socket hang up');
-					done();
-				}
+				err.code.should.equal('ESOCKETTIMEDOUT');
+				done();
 			});
 		});
 
 	});
 
-	describe('postFile()', function () {
-		it('should add filename if path is used', function () {
-			req.postFile(url + '/postFile', __dirname + '/index.test.js').then(function (res) {
+	describe('postFile()', () => {
+		it('should add filename if path is used', (done) => {
+			req.postFile(url + '/postFile', __dirname + '/index.test.js').then((res) => {
 				res.body.should.equal('OK');
+				done();
 			});
 		});
 	});
 
-	describe('Short hand methods', function () {
-		['get', 'post', 'head', 'delete', 'patch', 'put'].forEach(function (method) {
-			it('should make a ' + method.toUpperCase() + ' request', function (done) {
-				req[method](url + '/' + method).then(function (res) {
+	describe('Short hand methods', () => {
+		['get', 'post', 'head', 'delete', 'patch', 'put'].forEach((method) => {
+			it('should make a ' + method.toUpperCase() + ' request', (done) => {
+				req[method](url + '/' + method).then((res) => {
 					res.statusCode.should.equal(200);
 					done();
 				}).catch(done);
 			});
 		});
 
-		it('should make a get request with custom header', function (done) {
+		it('should make a get request with custom header', (done) => {
 			nock(url, {reqheaders: {'User-Agent': 'testo'}})
 				.get('/get/header')
 				.reply(200);
 
-			req.get(url + '/get/header', { headers: {'User-Agent': 'testo'}}).then(function (res) {
+			req.get(url + '/get/header', {headers: {'User-Agent': 'testo'}}).then((res) => {
 				res.statusCode.should.equal(200);
 				done();
 			}).catch(done);
+		});
+	});
+
+	describe('Additional timeouts', () => {
+		it('should reject if option timeout is used with socketTimeout or connectTimeout', (done) => {
+			req({url: url + '/foo', timeout: 100, socketTimeout: 100})
+				.catch((err) => {
+					err.message.should.equal('Can\'t use socketTimeout/connectTimeout in conjuction with timeout');
+					return req({url: url + '/foo', timeout: 100, connectTimeout: 100});
+				})
+				.catch((err) => {
+					err.message.should.equal('Can\'t use socketTimeout/connectTimeout in conjuction with timeout');
+					done();
+				});
+		});
+
+		describe('connectTimeout', () => {
+			it('rejects on timeout with ConnectionError', (done) => {
+				req({url: url + '/slowConnect', connectTimeout: 10})
+					.catch(ConnectionError, () => {
+						done();
+					});
+			});
+		});
+
+		describe('socketTimeout', () => {
+			it('rejects on timeout with ConnectionError', (done) => {
+				req({url: url + '/timeout', socketTimeout: 10})
+					.catch(ConnectionError, () => {
+						done();
+					});
+			});
 		});
 	});
 });
