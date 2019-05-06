@@ -33,9 +33,9 @@ describe('request-prom', () => {
 			.reply(200)
 			.get('/error')
 			.replyWithError('shit')
-			.get('/slowConnect')
-			.delay({head: 1000})
-			.reply(200)
+			.get('/slowBody')
+			.delay({body: 50})
+			.reply(200, 'ok')
 			.post('/postFile')
 			.reply(200, (path, body) => {
 				return body.match(/filename="index\.test\.js"/) ? 'OK' : 'FAIL';
@@ -165,10 +165,21 @@ describe('request-prom', () => {
 
 		describe('connectTimeout', () => {
 			it('rejects on timeout with ConnectionError', (done) => {
-				req({url: url + '/slowConnect', connectTimeout: 10})
-					.catch(ConnectionError, () => {
+				// can't figure out a better way to test a real connection timeout
+				req({url: 'http://www.google.com:81', connectTimeout: 10})
+					.catch(ConnectionError, (e) => {
+						e.message.should.equal('Connect timeout occurred when requesting url: http://www.google.com:81');
 						done();
 					});
+			});
+
+			it('doesnt reject if connect is within time', (done) => {
+				req({url: url + '/slowBody', connectTimeout: 1})
+					.then(() => {
+						done();
+					})
+					.catch(done);
+
 			});
 		});
 

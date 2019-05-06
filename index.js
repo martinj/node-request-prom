@@ -159,8 +159,10 @@ function createRequest(opts, resolve, reject) {
 			}
 		}, opts.connectTimeout);
 
-		req.on('connect', () => {
-			clearTimeout(connectTimeoutId);
+		req.on('socket', (socket) => {
+			socket.on('connect', () => {
+				clearTimeout(connectTimeoutId);
+			});
 		});
 	}
 
