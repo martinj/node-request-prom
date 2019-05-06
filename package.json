@@ -4,8 +4,9 @@
   "description": "Bluebird promise wrapper for request.",
   "main": "index.js",
   "scripts": {
-    "test": "jshint test/ index.js && istanbul test --preload-sources _mocha -- -u exports -R spec test/*.test.js test/**/*.test.js",
-    "ci": "npm test --coverage && istanbul report cobertura",
+    "lint": "eslint --ext '.js' .",
+    "test": "npm run lint && NODE_ENV=test nyc --reporter=text-summary --reporter=lcov mocha --exit 'test/*.test.js' 'test/**/*.test.js'",
+    "watch": "NODE_ENV=test BLUEBIRD_DEBUG=1 mocha --watch 'test/**/*.js' 'index.js' --timeout 1000",
     "release": "npm test && release-it -n -i patch",
     "release:minor": "npm test && release-it -n -i minor",
     "release:major": "npm test && release-it -n -i major"
@@ -27,16 +28,18 @@
   },
   "homepage": "https://github.com/martinj/node-request-prom",
   "dependencies": {
-    "bluebird": "^3.4.6",
-    "request": "^2.75.0",
+    "bluebird": "^3.5.4",
+    "request": "^2.88.0",
     "streamify": "^0.2.6"
   },
   "devDependencies": {
-    "istanbul": "^0.4.5",
-    "jshint": "^2.9.3",
-    "mocha": "^3.1.2",
-    "nock": "^8.1.0",
+    "@aptoma/eslint-config": "^7.0.1",
+    "eslint": "^5.16.0",
+    "eslint-plugin-mocha": "^5.3.0",
+    "mocha": "^6.1.4",
+    "nock": "^10.0.6",
+    "nyc": "^14.1.0",
     "release-it": "^2.4.3",
-    "should": "^11.1.1"
+    "should": "^13.2.3"
   }
 }

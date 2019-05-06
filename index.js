@@ -1,10 +1,10 @@
 'use strict';
-var request = require('request');
-var streamify = require('streamify');
-var path = require('path');
-var fs = require('fs');
-var Readable = require('stream').Readable;
-var Promise = require('bluebird');
+const request = require('request');
+const streamify = require('streamify');
+const path = require('path');
+const fs = require('fs');
+const Readable = require('stream').Readable;
+const Promise = require('bluebird');
 
 /**
  * Is status code 2xx
@@ -21,7 +21,7 @@ function isOk(statusCode) {
  * @return {Promise} resolves with response or rejects with ResponseError or ConnectionError
  */
 function requestProm(opts) {
-	return new Promise(function (resolve, reject) {
+	return new Promise((resolve, reject) => {
 		createRequest(opts, resolve, reject);
 	});
 }
@@ -32,7 +32,7 @@ function requestProm(opts) {
  * @param {Object} [opts] options to request
  * @return {Promise} resolves with response
  */
-['GET', 'POST', 'PATCH', 'DELETE', 'HEAD', 'PUT'].forEach(function (method) {
+['GET', 'POST', 'PATCH', 'DELETE', 'HEAD', 'PUT'].forEach((method) => {
 	// create short hand functions
 	requestProm[method.toLowerCase()] = function (url, opts) {
 		opts = opts || {};
@@ -44,27 +44,26 @@ function requestProm(opts) {
 
 /**
  * Make a request that returns a stream thats not sensitive to use after a process.nextTick()
- * @param  {String}  url
  * @param  {Object} opts options to request
  * @return {Stream}	from streamify
  */
- requestProm.stream = function (opts) {
-	var stream = streamify();
+requestProm.stream = function (opts) {
+	const stream = streamify();
 	opts = opts || {};
 
-	var req = request(opts);
-	req.on('error', function (err) {
+	const req = request(opts);
+	req.on('error', (err) => {
 		if (err.code && (err.code === 'ETIMEDOUT' || err.code === 'ESOCKETTIMEDOUT')) {
 			return stream.emit('error', new ConnectionError(
 				'Connect timeout occurred when requesting url: ' + (opts.url || opts.uri),
-			 	err.code
+				err.code
 			));
 		}
 
 		return stream.emit('error', new ConnectionError(err.message, err.code));
 	});
 
-	req.on('response', function (res) {
+	req.on('response', (res) => {
 		if (!isOk(res.statusCode)) {
 			stream.emit('error', new ResponseError(
 				'Server responded with ' + res.statusCode + ', unable get data from url: ' + (opts.url || opts.uri),
@@ -84,19 +83,19 @@ function requestProm(opts) {
  * @param {Object} [opts] options to request
  * @return {Promise} resolves with response
  */
- requestProm.postFile = function (url, file, opts) {
+requestProm.postFile = function (url, file, opts) {
 	opts = opts || {};
 	opts.url = url;
 	opts.method = 'POST';
 
-	return new Promise(function (resolve, reject) {
-		var req = createRequest(opts, resolve, reject),
-			form = req.form();
+	return new Promise((resolve, reject) => {
+		const req = createRequest(opts, resolve, reject);
+		const form = req.form();
 
 		if (file instanceof Readable) {
 			form.append('file', file);
 		} else {
-			form.append('file', fs.createReadStream(file), { filename: path.basename(file) });
+			form.append('file', fs.createReadStream(file), {filename: path.basename(file)});
 		}
 	});
 };
@@ -109,38 +108,76 @@ function requestProm(opts) {
  * @return {Request}
  */
 function createRequest(opts, resolve, reject) {
-	return request(opts,
-		function (err, res, body) {
-			if (err) {
-				if (err.code && (err.code === 'ETIMEDOUT' || err.code === 'ESOCKETTIMEDOUT')) {
-					return reject(new ConnectionError(
-						'Connect timeout occurred when requesting url: ' + (opts.url || opts.uri),
-						err.code
-					));
-				}
+	if (opts.timeout && (opts.socketTimeout || opts.connectTimeout)) {
+		reject(new Error('Can\'t use socketTimeout/connectTimeout in conjuction with timeout'));
+	}
 
-				return reject(new ConnectionError(err.message, err.code));
+	const req = request(opts, (err, res, body) => { // eslint-disable-line complexity
+		if (err) {
+			if (err.code && (err.code === 'ETIMEDOUT' || err.code === 'ESOCKETTIMEDOUT')) {
+				return reject(new ConnectionError(
+					`Connect timeout occurred when requesting url: ${opts.url || opts.uri}`,
+					err.code
+				));
 			}
 
-			if (!isOk(res.statusCode)) {
-				return reject(new ResponseError('Request to ' + (opts.url || opts.uri) + ' failed. code: ' + res.statusCode, res));
-			}
-
-			if (opts.json && typeof(body) !== 'object') {
-				return reject(new ResponseError('Unable to parse json from url: ' + (opts.url || opts.uri), res));
-			}
-
-			return resolve(res);
+			return reject(new ConnectionError(err.message, err.code));
 		}
-	);
+
+		if (!isOk(res.statusCode)) {
+			return reject(new ResponseError(`Request to ${opts.url || opts.uri} failed. code: ${res.statusCode}`, res));
+		}
+
+		if (opts.json && typeof (body) !== 'object') {
+			return reject(new ResponseError(`Unable to parse json from url: ${opts.url || opts.uri}`, res));
+		}
+
+		return resolve(res);
+	});
+
+	if (opts.socketTimeout) {
+		req.on('socket', (socket) => {
+			if (!socket.connecting) {
+				socket.setTimeout(opts.socketTimeout, sockTimeout);
+				return;
+			}
+
+			socket.on('connect', () => {
+				socket.setTimeout(opts.socketTimeout, sockTimeout);
+			});
+		});
+	}
+
+	if (opts.connectTimeout) {
+		const connectTimeoutId = setTimeout(() => {
+			if (req.req) {
+				req.abort();
+				const e = new Error('ESOCKETTIMEDOUT');
+				e.code = 'ESOCKETTIMEDOUT';
+				e.connect = true;
+				req.emit('error', e);
+			}
+		}, opts.connectTimeout);
+
+		req.on('connect', () => {
+			clearTimeout(connectTimeoutId);
+		});
+	}
+
+	return req;
+
+	function sockTimeout() {
+		req.abort();
+		const e = new Error('ESOCKETTIMEDOUT');
+		e.code = 'ESOCKETTIMEDOUT';
+		e.connect = false;
+		req.emit('error', e);
+	}
 }
 
-/**
- * ResponseError
- */
 function ResponseError(message, response) {
 	this.message = message;
-	this.name = "ResponseError";
+	this.name = 'ResponseError';
 	this.response = response;
 	this.statusCode = response.statusCode;
 	Error.captureStackTrace(this, ResponseError);
@@ -150,13 +187,10 @@ ResponseError.prototype.constructor = ResponseError;
 
 requestProm.ResponseError = ResponseError;
 
-/**
- * ConnectionError
- */
 function ConnectionError(message, code) {
 	this.message = message;
 	this.code = code;
-	this.name = "ConnectionError";
+	this.name = 'ConnectionError';
 	Error.captureStackTrace(this, ConnectionError);
 }
 ConnectionError.prototype = Object.create(Error.prototype);
